@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Transaction, Category } from '../data/seedData';
+import { translations, type Language } from '../locales/translations';
 
 export type UserRole = 'member' | 'admin';
 
@@ -38,6 +39,12 @@ interface AppContextType {
   setMerchantCategory: (merchant: string, category: Category) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  // Language & Egyptian Localization
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  toggleLanguage: () => void;
+  t: typeof translations['ar'];
+  isRtl: boolean;
   // AI Keys & Integration
   geminiApiKey: string;
   setGeminiApiKey: (key: string) => void;
@@ -94,6 +101,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [merchantOverrides, setMerchantOverrides] = useState<Record<string, Category>>({});
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [language, setLanguageState] = useState<Language>('ar');
   const [isHydrated, setIsHydrated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +132,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const storedDarkMode = localStorage.getItem('fw_dark_mode');
       const storedGeminiKey = localStorage.getItem('fw_gemini_key');
       const storedOpenaiKey = localStorage.getItem('fw_openai_key');
+      const storedLang = (localStorage.getItem('fw_lang') as Language) || 'ar';
 
       if (storedOverrides) {
         try { setMerchantOverrides(JSON.parse(storedOverrides)); } catch { /* Ignore malformed preference data. */ }
@@ -134,6 +143,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
       if (storedGeminiKey) setGeminiApiKeyState(storedGeminiKey);
       if (storedOpenaiKey) setOpenaiApiKeyState(storedOpenaiKey);
+
+      setLanguageState(storedLang);
+      document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.lang = storedLang;
 
       try {
         const currentUser = await request<User>('/api/auth/me');
@@ -168,6 +181,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [merchantOverrides, isDarkMode, isHydrated]);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem('fw_lang', lang);
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+  };
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'ar' ? 'en' : 'ar');
+  };
 
   const setGeminiApiKey = (key: string) => {
     const trimmed = key.trim();
@@ -279,11 +303,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   if (!isHydrated) return null;
 
+  const t = translations[language] || translations.ar;
+  const isRtl = language === 'ar';
+
   return (
     <AppContext.Provider value={{
       user, isLoading, error, login, register, logout, transactions, addTransaction,
       updateTransaction, deleteTransaction, merchantOverrides, setMerchantCategory,
       isDarkMode, toggleDarkMode,
+      language, setLanguage, toggleLanguage, t, isRtl,
       geminiApiKey, setGeminiApiKey,
       openaiApiKey, setOpenaiApiKey,
       serverAiStatus, getAiHeaders, isAiEnabled,
