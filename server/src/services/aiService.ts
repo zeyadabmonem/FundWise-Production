@@ -19,6 +19,7 @@ export interface ExtractedTransaction {
 export interface ApiKeyOptions {
   geminiKey?: string;
   openaiKey?: string;
+  serpApiKey?: string;
 }
 
 const EXTRACTION_SYSTEM_PROMPT = `You are an expert Egyptian financial assistant for FundWise (EGP currency).
