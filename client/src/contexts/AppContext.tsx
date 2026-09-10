@@ -21,6 +21,7 @@ type TransactionUpdate = Partial<TransactionInput>;
 export interface ServerAiStatus {
   hasServerGemini: boolean;
   hasServerOpenAI: boolean;
+  hasServerSerpApi: boolean;
   activeProvider: 'gemini' | 'openai' | 'none';
 }
 
@@ -50,6 +51,8 @@ interface AppContextType {
   setGeminiApiKey: (key: string) => void;
   openaiApiKey: string;
   setOpenaiApiKey: (key: string) => void;
+  serpApiKey: string;
+  setSerpApiKey: (key: string) => void;
   serverAiStatus: ServerAiStatus | null;
   getAiHeaders: () => Record<string, string>;
   isAiEnabled: boolean;
@@ -109,6 +112,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // AI Keys & Server Status
   const [geminiApiKey, setGeminiApiKeyState] = useState('');
   const [openaiApiKey, setOpenaiApiKeyState] = useState('');
+  const [serpApiKey, setSerpApiKeyState] = useState('');
   const [serverAiStatus, setServerAiStatus] = useState<ServerAiStatus | null>(null);
 
   const loadTransactions = async () => {
@@ -132,6 +136,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const storedDarkMode = localStorage.getItem('fw_dark_mode');
       const storedGeminiKey = localStorage.getItem('fw_gemini_key');
       const storedOpenaiKey = localStorage.getItem('fw_openai_key');
+      const storedSerpApiKey = localStorage.getItem('fw_serpapi_key');
       const storedLang = (localStorage.getItem('fw_lang') as Language) || 'ar';
 
       if (storedOverrides) {
@@ -143,6 +148,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
       if (storedGeminiKey) setGeminiApiKeyState(storedGeminiKey);
       if (storedOpenaiKey) setOpenaiApiKeyState(storedOpenaiKey);
+      if (storedSerpApiKey) setSerpApiKeyState(storedSerpApiKey);
 
       setLanguageState(storedLang);
       document.documentElement.dir = storedLang === 'ar' ? 'rtl' : 'ltr';
@@ -205,18 +211,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('fw_openai_key', trimmed);
   };
 
+  const setSerpApiKey = (key: string) => {
+    const trimmed = key.trim();
+    setSerpApiKeyState(trimmed);
+    localStorage.setItem('fw_serpapi_key', trimmed);
+  };
+
   const getAiHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {};
     if (geminiApiKey) headers['x-gemini-api-key'] = geminiApiKey;
     if (openaiApiKey) headers['x-openai-api-key'] = openaiApiKey;
+    if (serpApiKey) headers['x-serpapi-key'] = serpApiKey;
     return headers;
   };
 
   const isAiEnabled = Boolean(
     geminiApiKey.length > 0 ||
     openaiApiKey.length > 0 ||
+    serpApiKey.length > 0 ||
     serverAiStatus?.hasServerGemini ||
     serverAiStatus?.hasServerOpenAI
+    || serverAiStatus?.hasServerSerpApi
   );
 
   const authenticate = async (path: '/api/auth/login' | '/api/auth/register', body: Record<string, string>) => {
@@ -314,6 +329,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       language, setLanguage, toggleLanguage, t, isRtl,
       geminiApiKey, setGeminiApiKey,
       openaiApiKey, setOpenaiApiKey,
+      serpApiKey, setSerpApiKey,
       serverAiStatus, getAiHeaders, isAiEnabled,
     }}>
       {children}

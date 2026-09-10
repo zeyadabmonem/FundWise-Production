@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export default function SettingsPage() {
   const {
     user, logout, isDarkMode, toggleDarkMode, addTransaction,
-    geminiApiKey, setGeminiApiKey, openaiApiKey, setOpenaiApiKey,
+    geminiApiKey, setGeminiApiKey, openaiApiKey, setOpenaiApiKey, serpApiKey, setSerpApiKey,
     serverAiStatus, language, setLanguage, t, isRtl
   } = useAppContext();
   const [, setLocation] = useLocation();
@@ -21,8 +21,10 @@ export default function SettingsPage() {
   // Local state for API keys input
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiApiKey);
   const [localOpenaiKey, setLocalOpenaiKey] = useState(openaiApiKey);
+  const [localSerpApiKey, setLocalSerpApiKey] = useState(serpApiKey);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showSerpApiKey, setShowSerpApiKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   const handleLogout = () => {
@@ -33,6 +35,7 @@ export default function SettingsPage() {
   const handleSaveKeys = () => {
     setGeminiApiKey(localGeminiKey);
     setOpenaiApiKey(localOpenaiKey);
+    setSerpApiKey(localSerpApiKey);
     setIsSaved(true);
     toast.success(isRtl ? "تم حفظ وتحديث مفاتيح الذكاء الاصطناعي بنجاح! 🚀" : "AI API keys updated successfully! 🚀");
     setTimeout(() => setIsSaved(false), 2500);
@@ -41,8 +44,10 @@ export default function SettingsPage() {
   const handleClearKeys = () => {
     setLocalGeminiKey('');
     setLocalOpenaiKey('');
+    setLocalSerpApiKey('');
     setGeminiApiKey('');
     setOpenaiApiKey('');
+    setSerpApiKey('');
     toast.info(isRtl ? "تم مسح المفاتيح، والرجوع للوضع المحلي الاحتياطي." : "AI keys cleared. Using local offline fallback.");
   };
 
@@ -212,6 +217,42 @@ export default function SettingsPage() {
               </span>
             </div>
 
+            {/* SerpAPI Key — used only by the authenticated alternatives search */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-card-border">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Key size={14} className="text-violet-500" /> {t.settingsSerpApiLabel}
+                </label>
+                <a
+                  href="https://serpapi.com/manage-api-key"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-accent hover:underline flex items-center gap-0.5"
+                >
+                  SerpAPI <ExternalLink size={10} />
+                </a>
+              </div>
+              <div className="relative">
+                <input
+                  type={showSerpApiKey ? "text" : "password"}
+                  value={localSerpApiKey}
+                  onChange={(e) => setLocalSerpApiKey(e.target.value)}
+                  placeholder="SerpAPI key"
+                  className="w-full text-xs font-mono bg-muted/40 border border-card-border rounded-xl px-3 py-2.5 pr-9 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSerpApiKey(!showSerpApiKey)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showSerpApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {t.settingsSerpApiHint}
+              </span>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex items-center gap-2 pt-2">
               <button
@@ -222,7 +263,7 @@ export default function SettingsPage() {
                 {isSaved ? <Check size={14} /> : <Sparkles size={14} />}
                 {isSaved ? t.settingsSavedNotice : t.settingsSaveKeys}
               </button>
-              {(localGeminiKey || localOpenaiKey) && (
+              {(localGeminiKey || localOpenaiKey || localSerpApiKey) && (
                 <button
                   type="button"
                   onClick={handleClearKeys}
