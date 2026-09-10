@@ -1,0 +1,20 @@
+{
+  "name": "fundwise-production",
+  "version": "1.0.0",
+  "description": "FundWise AI - Clean, Reliable Production Rebuild of Smart Expense Tracker",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan.bold,green.bold\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build": "npm run build --prefix server && npm run build --prefix client",
+    "build:server": "npm run build --prefix server",
+    "build:client": "npm run build --prefix client",
+    "start": "npm run start --prefix server",
+    "test": "npm run test --prefix server",
+    "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
