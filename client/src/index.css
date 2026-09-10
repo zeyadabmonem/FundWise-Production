@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -56,6 +56,15 @@
 }
 
 /* LIGHT MODE */
+:root {
+  --app-font-sans: 'Inter', 'Cairo', system-ui, -apple-system, sans-serif;
+}
+
+[dir="rtl"] {
+  --app-font-sans: 'Cairo', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--app-font-sans);
+}
+
 :root {
   /* Exact Colors Provided */
   --primary: 215 68% 14%; /* #0B1F3A Navy Blue */
