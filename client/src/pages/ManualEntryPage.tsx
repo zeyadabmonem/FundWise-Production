@@ -4,10 +4,11 @@ import { useAppContext } from '../contexts/AppContext';
 import { Category, CATEGORY_COLORS } from '../data/seedData';
 import { ArrowLeft, Check, PenLine, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getCategoryLabel } from '../locales/translations';
 
 export default function ManualEntryPage() {
   const [, setLocation] = useLocation();
-  const { addTransaction, merchantOverrides } = useAppContext();
+  const { addTransaction, merchantOverrides, t, isRtl } = useAppContext();
 
   const [amount, setAmount] = useState('');
   const [merchant, setMerchant] = useState('');
@@ -70,7 +71,7 @@ export default function ManualEntryPage() {
           }
         }
       } catch {
-        // silently fall back — user can pick manually
+        // silently fall back
       } finally {
         setIsCategorizingAI(false);
       }
@@ -79,15 +80,14 @@ export default function ManualEntryPage() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchant]);
+  }, [merchant, merchantOverrides]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || Number(amount) <= 0) return;
 
     addTransaction({
-      merchant: merchant || 'Unknown',
+      merchant: merchant || (isRtl ? 'مصروف عام' : 'General Expense'),
       amount: Number(amount),
       category,
       date: new Date(date).toISOString(),
@@ -104,13 +104,15 @@ export default function ManualEntryPage() {
       {/* Header */}
       <div className="sticky top-0 z-30 bg-background/90 backdrop-blur-md px-4 h-14 flex items-center justify-between border-b border-border">
         <button
+          type="button"
           onClick={() => window.history.back()}
           className="p-2 -ml-2 text-foreground hover:bg-muted rounded-full transition-colors"
+          style={{ transform: isRtl ? 'scaleX(-1)' : 'none' }}
         >
           <ArrowLeft size={20} />
         </button>
-        <span className="font-semibold text-foreground flex items-center gap-2">
-          <PenLine size={16} /> Manual Entry
+        <span className="font-bold text-foreground flex items-center gap-2">
+          <PenLine size={16} className="text-accent" /> {t.manualTitle}
         </span>
         <div className="w-10" />
       </div>
@@ -127,7 +129,9 @@ export default function ManualEntryPage() {
               <div className="w-20 h-20 bg-[#16A34A] text-white rounded-full flex items-center justify-center shadow-lg">
                 <Check size={40} />
               </div>
-              <h2 className="text-2xl font-bold text-foreground">Added!</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                {isRtl ? 'تم تسجيل المصروف! 👏' : 'Added!'}
+              </h2>
             </motion.div>
           )}
         </AnimatePresence>
@@ -135,11 +139,13 @@ export default function ManualEntryPage() {
         <form onSubmit={handleSave} className="flex flex-col gap-6">
           {/* Amount */}
           <div className="flex flex-col items-center gap-2 mb-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-              Amount
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {t.manualAmountLabel}
             </label>
-            <div className="flex items-center text-4xl font-bold text-foreground">
-              <span className="text-muted-foreground mr-2 text-2xl mt-1">EGP</span>
+            <div className="flex items-center text-4xl font-extrabold text-foreground">
+              <span className="text-muted-foreground mx-2 text-2xl mt-1">
+                {isRtl ? 'ج.م' : 'EGP'}
+              </span>
               <input
                 type="number"
                 value={amount}
@@ -157,30 +163,30 @@ export default function ManualEntryPage() {
           <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm flex flex-col gap-5">
             {/* Merchant */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Merchant</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t.manualMerchantLabel}</label>
               <input
                 type="text"
                 value={merchant}
                 onChange={e => setMerchant(e.target.value)}
-                placeholder="Where did you spend?"
-                className="w-full text-base bg-transparent border-b border-border focus:border-primary outline-none py-2 text-foreground"
+                placeholder={t.manualMerchantPlaceholder}
+                className="w-full text-sm bg-transparent border-b border-border focus:border-primary outline-none py-2 text-foreground"
               />
             </div>
 
             {/* Category with AI indicator */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground">Category</label>
+                <label className="text-xs font-semibold text-muted-foreground">{t.manualCategoryLabel}</label>
                 <AnimatePresence>
                   {isCategorizingAI && (
                     <motion.div
                       initial={{ opacity: 0, x: 6 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0 }}
-                      className="flex items-center gap-1 text-[10px] font-semibold text-accent uppercase tracking-wider"
+                      className="flex items-center gap-1 text-[10px] font-bold text-accent uppercase tracking-wider"
                     >
                       <Sparkles size={10} className="text-accent" />
-                      AI thinking…
+                      {isRtl ? 'الذكاء الاصطناعي بيقترح...' : 'AI thinking…'}
                     </motion.div>
                   )}
                   {aiCategorized && !isCategorizingAI && (
@@ -188,10 +194,10 @@ export default function ManualEntryPage() {
                       initial={{ opacity: 0, x: 6 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0 }}
-                      className="flex items-center gap-1 text-[10px] font-semibold text-accent uppercase tracking-wider"
+                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-wider"
                     >
-                      <Sparkles size={10} className="text-accent" />
-                      AI suggested
+                      <Sparkles size={10} className="text-emerald-500" />
+                      {isRtl ? 'اقتراح الذكاء الاصطناعي ✨' : 'AI suggested'}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -199,34 +205,36 @@ export default function ManualEntryPage() {
               <select
                 value={category}
                 onChange={e => { setCategory(e.target.value as Category); setAiCategorized(false); }}
-                className="w-full text-base bg-transparent border-b border-border focus:border-primary outline-none py-2 text-foreground"
+                className="w-full text-sm bg-transparent border-b border-border focus:border-primary outline-none py-2 text-foreground"
               >
                 {Object.keys(CATEGORY_COLORS).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>
+                    {getCategoryLabel(cat, t)}
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* Date */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t.manualDateLabel}</label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full text-base bg-transparent border-b border-border focus:border-primary outline-none py-2 text-foreground"
+                className="w-full text-sm bg-transparent border-b border-border focus:border-primary outline-none py-2 text-foreground"
                 required
               />
             </div>
 
             {/* Notes */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Notes (Optional)</label>
+              <label className="text-xs font-semibold text-muted-foreground">{t.manualNotesLabel}</label>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Add a note…"
-                className="w-full text-sm bg-muted/30 border border-border rounded-lg p-3 outline-none focus:border-primary text-foreground resize-none"
+                placeholder={t.manualNotesPlaceholder}
+                className="w-full text-xs bg-muted/30 border border-border rounded-xl p-3 outline-none focus:border-primary text-foreground resize-none"
                 rows={2}
               />
             </div>
@@ -234,9 +242,9 @@ export default function ManualEntryPage() {
 
           <button
             type="submit"
-            className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-semibold shadow-md hover:opacity-90 transition-opacity mt-2"
+            className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-bold shadow-md hover:opacity-90 transition-opacity mt-1"
           >
-            Add Transaction
+            {t.manualSaveBtn}
           </button>
         </form>
       </div>

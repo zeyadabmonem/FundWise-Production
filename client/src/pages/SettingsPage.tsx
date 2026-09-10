@@ -1,7 +1,7 @@
 import { useAppContext } from '../contexts/AppContext';
 import {
-  User, Moon, Sun, MessageSquare, LogOut, Info, ShieldCheck, ArrowRight,
-  Sparkles, Key, Check, ExternalLink, Eye, EyeOff, Bot
+  Moon, Sun, MessageSquare, LogOut, Info, ShieldCheck, ArrowRight,
+  Sparkles, Key, Check, ExternalLink, Eye, EyeOff, Bot, Languages
 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useState } from 'react';
@@ -12,7 +12,7 @@ export default function SettingsPage() {
   const {
     user, logout, isDarkMode, toggleDarkMode, addTransaction,
     geminiApiKey, setGeminiApiKey, openaiApiKey, setOpenaiApiKey,
-    serverAiStatus, isAiEnabled
+    serverAiStatus, language, setLanguage, t, isRtl
   } = useAppContext();
   const [, setLocation] = useLocation();
 
@@ -34,7 +34,7 @@ export default function SettingsPage() {
     setGeminiApiKey(localGeminiKey);
     setOpenaiApiKey(localOpenaiKey);
     setIsSaved(true);
-    toast.success("AI API keys updated successfully! 🚀");
+    toast.success(isRtl ? "تم حفظ وتحديث مفاتيح الذكاء الاصطناعي بنجاح! 🚀" : "AI API keys updated successfully! 🚀");
     setTimeout(() => setIsSaved(false), 2500);
   };
 
@@ -43,13 +43,13 @@ export default function SettingsPage() {
     setLocalOpenaiKey('');
     setGeminiApiKey('');
     setOpenaiApiKey('');
-    toast.info("AI keys cleared. Using local offline fallback.");
+    toast.info(isRtl ? "تم مسح المفاتيح، والرجوع للوضع المحلي الاحتياطي." : "AI keys cleared. Using local offline fallback.");
   };
 
   const simulateSms = () => {
-    toast("New transaction detected from SMS 📩", {
+    toast(isRtl ? "رسالة بنكية جديدة 📩" : "New transaction detected from SMS 📩", {
       action: {
-        label: "Review →",
+        label: isRtl ? "مراجعة ←" : "Review →",
         onClick: () => setShowSmsConfirmation(true)
       },
       duration: 5000,
@@ -66,16 +66,16 @@ export default function SettingsPage() {
       notes: data.notes,
       captureChannel: 'sms'
     });
-    toast.success("SMS Transaction saved");
+    toast.success(isRtl ? "تم تسجيل حركة الرسالة البنكية بنجاح" : "SMS Transaction saved");
   };
 
   if (!user) return null;
 
   // Active AI Provider Label
-  let activeProviderLabel = "Local Offline Fallback";
+  let activeProviderLabel = isRtl ? "الوضع المحلي الاحتياطي" : "Local Offline Fallback";
   let activeProviderBadge = "bg-muted text-muted-foreground";
   if (localGeminiKey || serverAiStatus?.hasServerGemini) {
-    activeProviderLabel = "Gemini 1.5 Flash (Recommended)";
+    activeProviderLabel = isRtl ? "Gemini Flash (الذكاء الفائق)" : "Gemini Flash (Recommended)";
     activeProviderBadge = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30";
   } else if (localOpenaiKey || serverAiStatus?.hasServerOpenAI) {
     activeProviderLabel = "OpenAI GPT-4o-mini";
@@ -86,7 +86,7 @@ export default function SettingsPage() {
     <div className="pb-24 min-h-[100dvh] bg-background">
       <div className="max-w-md mx-auto w-full p-4 flex flex-col gap-6">
         
-        <h1 className="text-2xl font-bold text-foreground mt-2">Settings</h1>
+        <h1 className="text-2xl font-bold text-foreground mt-2">{t.settingsTitle}</h1>
 
         {/* User Card */}
         <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm flex items-center gap-4">
@@ -104,18 +104,19 @@ export default function SettingsPage() {
           <ShieldCheck size={72} className="absolute -right-3 -bottom-3 opacity-10" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold">Admin workspace</h3>
+              <h3 className="font-bold">{t.settingsAdminWorkspace}</h3>
               {user.role === 'admin' && <span className="text-[10px] font-bold uppercase tracking-wider bg-white/15 rounded-full px-2 py-0.5">Admin</span>}
             </div>
-            <p className="text-xs text-white/65 leading-relaxed max-w-xs">
-              Monitor platform health, review AI captures, and explore product activity.
+            <p className="text-xs text-white/70 leading-relaxed max-w-xs">
+              {t.settingsAdminDesc}
             </p>
             <button
+              type="button"
               onClick={() => user.role === 'admin' && setLocation('/admin')}
               disabled={user.role !== 'admin'}
               className={`mt-3 flex items-center gap-1.5 text-sm font-semibold text-white transition-colors ${user.role === 'admin' ? 'hover:text-accent' : 'opacity-60 cursor-not-allowed'}`}
             >
-              {user.role === 'admin' ? 'Open admin console' : 'Admin access required'} {user.role === 'admin' && <ArrowRight size={15} />}
+              {user.role === 'admin' ? t.settingsAdminBtn : (isRtl ? 'صلاحيات الإدارة مطلوبة' : 'Admin access required')} {user.role === 'admin' && <ArrowRight size={15} style={{ transform: isRtl ? 'scaleX(-1)' : 'none' }} />}
             </button>
           </div>
         </div>
@@ -124,7 +125,7 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between ml-2 mr-1">
             <h3 className="text-xs font-bold text-accent uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles size={14} /> AI Engine & Precision Keys
+              <Sparkles size={14} /> {t.settingsAiSection}
             </h3>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${activeProviderBadge}`}>
               {activeProviderLabel}
@@ -133,16 +134,16 @@ export default function SettingsPage() {
 
           <div className="bg-card border border-card-border rounded-2xl shadow-sm p-4 flex flex-col gap-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Power up your Receipt scanning and Egyptian voice parsing with real LLM accuracy (+98%). Keys are stored locally in your browser.
+              {t.settingsAiDesc}
             </p>
 
             {/* Google Gemini Key */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Bot size={14} className="text-emerald-500" /> Google Gemini API Key
+                  <Bot size={14} className="text-emerald-500" /> {t.settingsGeminiLabel}
                   <span className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.2 rounded">
-                    Free Tier
+                    {isRtl ? 'مجاني تماماً' : 'Free Tier'}
                   </span>
                 </label>
                 <a
@@ -151,7 +152,7 @@ export default function SettingsPage() {
                   rel="noreferrer"
                   className="text-[11px] text-accent hover:underline flex items-center gap-0.5"
                 >
-                  Get free key <ExternalLink size={10} />
+                  {isRtl ? 'احصل على مفتاح مجاني' : 'Get free key'} <ExternalLink size={10} />
                 </a>
               </div>
               <div className="relative">
@@ -171,7 +172,7 @@ export default function SettingsPage() {
                 </button>
               </div>
               <span className="text-[10px] text-muted-foreground">
-                Free 15 req/min. Reads Egyptian receipts & understands Egyptian slang natively.
+                {t.settingsGeminiHint}
               </span>
             </div>
 
@@ -179,7 +180,7 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-1.5 pt-2 border-t border-card-border">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <Key size={14} className="text-blue-500" /> OpenAI API Key (Optional)
+                  <Key size={14} className="text-blue-500" /> {t.settingsOpenaiLabel}
                 </label>
                 <a
                   href="https://platform.openai.com/api-keys"
@@ -207,7 +208,7 @@ export default function SettingsPage() {
                 </button>
               </div>
               <span className="text-[10px] text-muted-foreground">
-                Optional: Uses GPT-4o-mini Vision and Whisper speech transcription.
+                {isRtl ? 'اختياري: استخدام GPT-4o-mini وWhisper لتسجيل الصوت.' : 'Optional: Uses GPT-4o-mini Vision and Whisper speech transcription.'}
               </span>
             </div>
 
@@ -219,7 +220,7 @@ export default function SettingsPage() {
                 className="flex-1 bg-accent text-accent-foreground font-semibold text-xs py-2.5 rounded-xl hover:bg-accent/90 transition-colors flex items-center justify-center gap-1.5"
               >
                 {isSaved ? <Check size={14} /> : <Sparkles size={14} />}
-                {isSaved ? "Saved!" : "Save API Keys"}
+                {isSaved ? t.settingsSavedNotice : t.settingsSaveKeys}
               </button>
               {(localGeminiKey || localOpenaiKey) && (
                 <button
@@ -227,7 +228,7 @@ export default function SettingsPage() {
                   onClick={handleClearKeys}
                   className="px-3 py-2.5 rounded-xl border border-card-border text-xs text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors"
                 >
-                  Clear
+                  {t.settingsClearKeys}
                 </button>
               )}
             </div>
@@ -236,26 +237,55 @@ export default function SettingsPage() {
 
         {/* Preferences */}
         <div className="flex flex-col gap-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-2">Preferences</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-2">{t.settingsPreferences}</h3>
           <div className="bg-card border border-card-border rounded-2xl shadow-sm overflow-hidden">
+            
+            {/* Language Selection */}
+            <div className="p-4 flex items-center justify-between border-b border-card-border">
+              <div className="flex items-center gap-3 text-foreground">
+                <Languages size={20} className="text-accent" />
+                <span className="font-semibold text-sm">{t.settingsLanguage}</span>
+              </div>
+              <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-card-border gap-1">
+                <button
+                  type="button"
+                  onClick={() => setLanguage('ar')}
+                  className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-all ${language === 'ar' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  عربي 🇪🇬
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={`text-xs px-2.5 py-1 rounded-bold transition-all ${language === 'en' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  English
+                </button>
+              </div>
+            </div>
+
+            {/* Dark Mode */}
             <div className="p-4 flex items-center justify-between border-b border-card-border">
               <div className="flex items-center gap-3 text-foreground">
                 {isDarkMode ? <Moon size={20} /> : <Sun size={20} />}
-                <span className="font-medium">Dark Mode</span>
+                <span className="font-medium text-sm">{t.settingsDarkMode}</span>
               </div>
               <button 
+                type="button"
                 onClick={toggleDarkMode}
                 className={`w-12 h-6 rounded-full transition-colors relative ${isDarkMode ? 'bg-primary' : 'bg-muted-foreground/30'}`}
               >
                 <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
               </button>
             </div>
+
+            {/* Currency */}
             <div className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3 text-foreground">
                 <div className="w-5 font-bold text-center">£</div>
-                <span className="font-medium">Currency</span>
+                <span className="font-medium text-sm">{isRtl ? 'العملة' : 'Currency'}</span>
               </div>
-              <span className="text-sm text-muted-foreground">EGP — Egyptian Pound</span>
+              <span className="text-sm font-semibold text-muted-foreground">{t.egpFull}</span>
             </div>
           </div>
         </div>
@@ -263,36 +293,43 @@ export default function SettingsPage() {
         {/* Demo SMS */}
         <div className="flex flex-col gap-2">
           <h3 className="text-xs font-bold text-accent uppercase tracking-wider ml-2 flex items-center gap-1">
-            <MessageSquare size={12} /> Demo Controls
+            <MessageSquare size={12} /> {isRtl ? 'تجربة المحاكاة البنكية' : 'Demo Controls'}
           </h3>
           <div className="bg-card border-2 border-accent/20 rounded-2xl shadow-sm p-4 flex flex-col gap-4">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              In the real mobile app, this works automatically in the background via your bank's SMS notifications. This is a simulated demo.
+              {isRtl
+                ? 'في التطبيق الحقيقي، العملية بتتم تلقائياً في الخلفية من رسائل الـ SMS للبنك بتاعك. الزرار ده للمحاكاة والتجربة.'
+                : "In the real mobile app, this works automatically in the background via your bank's SMS notifications. This is a simulated demo."}
             </p>
             <button 
+              type="button"
               onClick={simulateSms}
               className="bg-accent/10 text-accent font-semibold py-3 rounded-xl border border-accent/20 hover:bg-accent/20 transition-colors flex items-center justify-center gap-2"
             >
-              Simulate Incoming SMS
+              {isRtl ? 'محاكاة وصول رسالة بنكية' : 'Simulate Incoming SMS'}
             </button>
           </div>
         </div>
 
         {/* About & Logout */}
         <div className="flex flex-col gap-2">
-          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-2">About</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-2">{t.settingsAbout}</h3>
           <div className="bg-card border border-card-border rounded-2xl shadow-sm overflow-hidden">
             <div className="p-4 flex items-center justify-between border-b border-card-border text-foreground">
               <div className="flex items-center gap-3">
                 <Info size={20} />
-                <span className="font-medium">Version</span>
+                <span className="font-medium text-sm">{isRtl ? 'الإصدار' : 'Version'}</span>
               </div>
-              <span className="text-sm text-muted-foreground">1.0.0 (Prototype)</span>
+              <span className="text-sm text-muted-foreground">1.0.0 (Production)</span>
             </div>
-            <button onClick={handleLogout} className="w-full p-4 flex items-center justify-between text-destructive hover:bg-muted/50 transition-colors">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full p-4 flex items-center justify-between text-destructive hover:bg-muted/50 transition-colors"
+            >
               <div className="flex items-center gap-3">
                 <LogOut size={20} />
-                <span className="font-medium">Sign Out</span>
+                <span className="font-medium text-sm">{t.settingsLogout}</span>
               </div>
             </button>
           </div>

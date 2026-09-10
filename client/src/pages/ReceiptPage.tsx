@@ -8,6 +8,7 @@ import {
   Sparkles, Settings as SettingsIcon,
 } from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
+import { getCategoryLabel } from "@/locales/translations";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Status = "idle" | "previewing" | "scanning" | "done" | "error";
@@ -69,31 +70,28 @@ function parseReceiptText(text: string): ParsedReceipt {
   return { merchant, amount, rawText: text, provider: "tesseract" };
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
 export default function ReceiptPage() {
   const [, navigate] = useLocation();
-  const { isAiEnabled, getAiHeaders, geminiApiKey } = useAppContext();
+  const { isAiEnabled, getAiHeaders, geminiApiKey, t, isRtl } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [status, setStatus] = useState<Status>("idle");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [scanMethod, setScanMethod] = useState<string>("Scanning...");
+  const [scanMethod, setScanMethod] = useState<string>(t.receiptReading);
   const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // ── Process Image with Vision AI (or fallback to Tesseract) ────────────────
   const processImage = async (file: File) => {
     const url = URL.createObjectURL(file);
     setImageUrl(url);
     setStatus("scanning");
     setProgress(15);
 
-    // 1. If AI is enabled, try Vision AI (Gemini 1.5 Flash or OpenAI)
     if (isAiEnabled) {
       try {
-        setScanMethod(geminiApiKey ? "Gemini 1.5 Flash Vision..." : "AI Vision OCR...");
+        setScanMethod(geminiApiKey ? (isRtl ? "جاري قراءة الفاتورة بـ Gemini AI..." : "Gemini Flash Vision...") : (isRtl ? "جاري قراءة الفاتورة بالذكاء الاصطناعي..." : "AI Vision OCR..."));
         setProgress(40);
 
         const formData = new FormData();
@@ -117,7 +115,7 @@ export default function ReceiptPage() {
           merchant: data.merchant || "Unknown Merchant",
           amount: typeof data.amount === "number" ? data.amount : null,
           category: data.category,
-          rawText: data.rawText || `Extracted via ${data.provider === 'gemini' ? 'Gemini 1.5 Flash' : 'Vision AI'}`,
+          rawText: data.rawText || `Extracted via ${data.provider === 'gemini' ? 'Gemini Flash' : 'Vision AI'}`,
           provider: data.provider || "gemini",
         });
 
@@ -129,9 +127,8 @@ export default function ReceiptPage() {
       }
     }
 
-    // 2. Fallback: Local Tesseract.js in browser
     try {
-      setScanMethod("Local OCR (Tesseract)...");
+      setScanMethod(isRtl ? "قراءة محلية سريعة..." : "Local OCR (Tesseract)...");
       setProgress(10);
       const result = await Tesseract.recognize(url, "eng+ara", {
         logger: (m) => {
@@ -146,7 +143,7 @@ export default function ReceiptPage() {
       setStatus("done");
     } catch (err) {
       console.error("OCR error:", err);
-      setErrorMsg("Could not read the image. Try a clearer photo.");
+      setErrorMsg(isRtl ? "تعذر قراءة الصورة، يرجى تصوير الفاتورة في إضاءة واضحة." : "Could not read the image. Try a clearer photo.");
       setStatus("error");
     }
   };
@@ -181,7 +178,7 @@ export default function ReceiptPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar title="Scan Receipt" showBack />
+      <TopBar title={t.receiptTitle} showBack />
 
       <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 pb-8">
 
@@ -192,9 +189,9 @@ export default function ReceiptPage() {
               <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <FileImage className="w-12 h-12 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-foreground">Scan a Receipt</h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-                Snap or upload an Egyptian receipt — we'll extract the store name, total, and category
+              <h2 className="text-xl font-bold text-foreground">{t.receiptTitle}</h2>
+              <p className="text-xs text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
+                {t.receiptSubtitle}
               </p>
             </div>
 
@@ -202,16 +199,16 @@ export default function ReceiptPage() {
             {isAiEnabled ? (
               <div className="w-full max-w-sm flex items-center justify-center gap-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs px-3.5 py-2 rounded-xl">
                 <Sparkles size={14} className="animate-pulse" />
-                <span className="font-semibold">AI Vision Active (+98% accuracy)</span>
+                <span className="font-semibold">{t.receiptAiActiveBadge}</span>
               </div>
             ) : (
               <div className="w-full max-w-sm flex items-center justify-between bg-muted/50 border border-card-border text-muted-foreground text-xs p-3 rounded-xl">
                 <div className="flex items-center gap-2">
                   <Sparkles size={14} className="text-accent" />
-                  <span>Want +98% accuracy? Add free Gemini key</span>
+                  <span>{t.receiptOfflineTip}</span>
                 </div>
                 <Link href="/settings" className="text-accent font-semibold flex items-center gap-0.5 hover:underline">
-                  Settings <SettingsIcon size={12} />
+                  {t.navSettings} <SettingsIcon size={12} />
                 </Link>
               </div>
             )}
@@ -219,21 +216,21 @@ export default function ReceiptPage() {
             <div className="flex flex-col gap-3 w-full max-w-sm">
               <Button
                 size="lg"
-                className="w-full gap-2"
+                className="w-full gap-2 font-semibold"
                 onClick={() => cameraInputRef.current?.click()}
               >
                 <Camera className="w-5 h-5" />
-                Take Photo
+                {t.receiptTakePhoto}
               </Button>
 
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full gap-2"
+                className="w-full gap-2 font-semibold"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="w-5 h-5" />
-                Upload from Gallery
+                {t.receiptUploadGallery}
               </Button>
             </div>
 
@@ -256,8 +253,8 @@ export default function ReceiptPage() {
 
             <p className="text-xs text-muted-foreground text-center max-w-xs">
               {isAiEnabled
-                ? "Powered by Vision AI with local fallback"
-                : "Free local OCR runs directly in browser. Add API key for maximum accuracy."}
+                ? (isRtl ? "مدعوم برؤية الذكاء الاصطناعي مع وضع محلي احتياطي" : "Powered by Vision AI with local fallback")
+                : (isRtl ? "قارئ الفواتير المجاني يعمل في المتصفح. يمكنك تفعيل الذكاء الاصطناعي للدقة القصوى." : "Free local OCR runs directly in browser. Add API key for maximum accuracy.")}
             </p>
           </>
         )}
@@ -301,7 +298,7 @@ export default function ReceiptPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-emerald-500">
                   <CheckCircle2 className="w-5 h-5" />
-                  <span className="font-semibold text-sm">Receipt scanned</span>
+                  <span className="font-bold text-sm">{t.receiptSuccess}</span>
                 </div>
                 {parsed.provider && parsed.provider !== 'tesseract' && (
                   <span className="text-[10px] font-bold bg-accent/15 text-accent px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -312,27 +309,26 @@ export default function ReceiptPage() {
 
               <div className="space-y-2 pt-1 border-t border-card-border">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Merchant</span>
-                  <span className="font-semibold text-foreground">{parsed.merchant}</span>
+                  <span className="text-muted-foreground">{t.receiptMerchant}</span>
+                  <span className="font-bold text-foreground">{parsed.merchant}</span>
                 </div>
                 {parsed.category && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Category</span>
-                    <span className="font-semibold text-foreground">{parsed.category}</span>
+                    <span className="text-muted-foreground">{t.receiptCategory}</span>
+                    <span className="font-semibold text-foreground">{getCategoryLabel(parsed.category, t)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Amount</span>
-                  <span className="font-bold text-foreground text-base">
-                    {parsed.amount != null ? `EGP ${parsed.amount.toFixed(2)}` : "Not detected"}
+                  <span className="text-muted-foreground">{t.receiptTotalAmount}</span>
+                  <span className="font-extrabold text-foreground text-base">
+                    {parsed.amount != null ? `${parsed.amount.toFixed(2)} ${isRtl ? 'ج.م' : 'EGP'}` : (isRtl ? "مش محدد" : "Not detected")}
                   </span>
                 </div>
               </div>
 
-              {/* Raw OCR text (collapsed) */}
               <details className="text-xs pt-1">
                 <summary className="text-muted-foreground cursor-pointer hover:text-foreground">
-                  View raw scan details
+                  {t.receiptViewRaw}
                 </summary>
                 <pre className="mt-2 p-2 bg-muted/60 rounded text-muted-foreground overflow-x-auto text-[10px] max-h-24 whitespace-pre-wrap font-mono">
                   {parsed.rawText}
@@ -342,11 +338,11 @@ export default function ReceiptPage() {
 
             <div className="w-full max-w-sm space-y-3">
               <Button onClick={handleConfirm} className="w-full" size="lg">
-                Continue to Save
+                {t.receiptContinueBtn}
               </Button>
               <Button variant="ghost" className="w-full gap-2" onClick={reset}>
                 <RotateCcw className="w-4 h-4" />
-                Scan Another
+                {t.receiptScanAnother}
               </Button>
             </div>
           </>
@@ -358,13 +354,13 @@ export default function ReceiptPage() {
             <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-red-400">Scan failed</p>
+                <p className="text-sm font-bold text-red-400">{isRtl ? 'فشل قراءة الفاتورة' : 'Scan failed'}</p>
                 <p className="text-xs text-muted-foreground mt-1">{errorMsg}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full gap-2" onClick={reset}>
               <RotateCcw className="w-4 h-4" />
-              Try Again
+              {isRtl ? 'حاول تاني' : 'Try Again'}
             </Button>
           </div>
         )}

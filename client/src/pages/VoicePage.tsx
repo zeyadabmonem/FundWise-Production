@@ -7,6 +7,7 @@ import {
   Sparkles, Send, Settings as SettingsIcon,
 } from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
+import { getCategoryLabel } from "@/locales/translations";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Status = "idle" | "listening" | "processing" | "done" | "error" | "unsupported";
@@ -65,10 +66,9 @@ function parseExpenseFromTranscript(text: string): ParsedExpense {
   return { merchant, amount, transcript: text, provider: "rule-based" };
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
 export default function VoicePage() {
   const [, navigate] = useLocation();
-  const { isAiEnabled, getAiHeaders } = useAppContext();
+  const { isAiEnabled, getAiHeaders, t, isRtl } = useAppContext();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
   const [customText, setCustomText] = useState("");
@@ -78,18 +78,16 @@ export default function VoicePage() {
   const animFrameRef = useRef<number>(0);
   const transcriptRef = useRef<string>("");
 
-  // Keep ref synchronized with state to avoid stale closures in recognition.onend
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
 
-  // ── Animate microphone pulse while listening ────────────────────────────
   useEffect(() => {
     if (status === "listening") {
-      let t = 0;
+      let tAnim = 0;
       const animate = () => {
-        t += 0.08;
-        setPulseSize(1 + 0.15 * Math.abs(Math.sin(t)));
+        tAnim += 0.08;
+        setPulseSize(1 + 0.15 * Math.abs(Math.sin(tAnim)));
         animFrameRef.current = requestAnimationFrame(animate);
       };
       animFrameRef.current = requestAnimationFrame(animate);
@@ -100,7 +98,6 @@ export default function VoicePage() {
     return () => cancelAnimationFrame(animFrameRef.current);
   }, [status]);
 
-  // ── Check browser support ───────────────────────────────────────────────
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -109,7 +106,6 @@ export default function VoicePage() {
     }
   }, []);
 
-  // ── Process Speech / Text through AI (or Local Fallback) ─────────────────
   const processExpense = async (rawText: string) => {
     const cleaned = rawText.trim();
     if (!cleaned) {
@@ -119,7 +115,6 @@ export default function VoicePage() {
 
     setStatus("processing");
 
-    // 1. Try AI parsing (Gemini or OpenAI)
     if (isAiEnabled) {
       try {
         const res = await fetch("/api/ai/parse-text", {
@@ -149,19 +144,17 @@ export default function VoicePage() {
       }
     }
 
-    // 2. Local fallback regex
     const localResult = parseExpenseFromTranscript(cleaned);
     setParsed(localResult);
     setStatus("done");
   };
 
-  // ── Start Speech Recording ──────────────────────────────────────────────
   const startListening = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "ar-EG";
+    recognition.lang = isRtl ? "ar-EG" : "en-US";
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
@@ -234,22 +227,22 @@ export default function VoicePage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <TopBar title="Voice Capture" showBack />
+      <TopBar title={t.voiceTitle} showBack />
 
       <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 pb-8">
 
         {/* AI Status Badge */}
         {isAiEnabled ? (
-          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs px-3 py-1.5 rounded-full">
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs px-3.5 py-1.5 rounded-full">
             <Sparkles size={13} className="animate-pulse" />
-            <span className="font-semibold">AI Dialect Parser Active (Egyptian Slang Support)</span>
+            <span className="font-semibold">{t.voiceAiActiveBadge}</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 bg-muted/50 border border-card-border text-muted-foreground text-xs px-3 py-1.5 rounded-full">
+          <div className="flex items-center gap-2 bg-muted/50 border border-card-border text-muted-foreground text-xs px-3.5 py-1.5 rounded-full">
             <Sparkles size={13} className="text-accent" />
-            <span>Local parser active</span>
+            <span>{isRtl ? 'الوضع المحلي نشط' : 'Local parser active'}</span>
             <Link href="/settings" className="text-accent font-semibold hover:underline flex items-center gap-0.5">
-              Add Gemini Key <SettingsIcon size={11} />
+              {isRtl ? 'تفعيل الذكاء الاصطناعي' : 'Add Gemini Key'} <SettingsIcon size={11} />
             </Link>
           </div>
         )}
@@ -257,20 +250,20 @@ export default function VoicePage() {
         {/* Status message */}
         <div className="text-center">
           <h2 className="text-xl font-bold text-foreground">
-            {status === "idle" && "Tap to Speak or Type"}
-            {status === "listening" && "Listening to Egyptian / English…"}
-            {status === "processing" && "AI is extracting expense…"}
-            {status === "done" && "Extracted successfully!"}
-            {status === "error" && "Microphone blocked"}
-            {status === "unsupported" && "Voice not supported in this browser"}
+            {status === "idle" && t.voiceTapToSpeak}
+            {status === "listening" && t.voiceListening}
+            {status === "processing" && t.voiceProcessing}
+            {status === "done" && t.voiceDone}
+            {status === "error" && t.voiceMicBlocked}
+            {status === "unsupported" && t.voiceUnsupported}
           </h2>
-          <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-            {status === "idle" && 'Say e.g. "دفعت 450 في كارفور" or "Paid 95 EGP at Starbucks"'}
-            {status === "listening" && "Speak clearly, then tap stop when finished"}
-            {status === "processing" && "Analyzing merchant, amount, and category…"}
-            {status === "done" && "Review the details below"}
-            {status === "error" && "Please allow microphone access in browser permissions"}
-            {status === "unsupported" && "You can still type your expense below!"}
+          <p className="text-xs text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
+            {status === "idle" && t.voiceHint}
+            {status === "listening" && (isRtl ? "اتكلم بوضوح، واضغط على الزرار لما تخلص" : "Speak clearly, then tap stop when finished")}
+            {status === "processing" && (isRtl ? "بنطلع اسم المتجر والمبلغ والتصنيف..." : "Analyzing merchant, amount, and category…")}
+            {status === "done" && (isRtl ? "راجع التفاصيل وسجّل حركتك" : "Review the details below")}
+            {status === "error" && (isRtl ? "يرجى السماح بالمايك في إعدادات المتصفح" : "Please allow microphone access in browser permissions")}
+            {status === "unsupported" && (isRtl ? "تقدر تكتب المصروف هنا تحت!" : "You can still type your expense below!")}
           </p>
         </div>
 
@@ -308,7 +301,7 @@ export default function VoicePage() {
         {/* Live transcript during listening */}
         {status === "listening" && transcript && (
           <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1 font-medium">Heard so far:</p>
+            <p className="text-xs text-muted-foreground mb-1 font-medium">{t.voiceHeardSoFar}</p>
             <p className="text-sm font-semibold text-foreground italic">"{transcript}"</p>
           </div>
         )}
@@ -317,11 +310,11 @@ export default function VoicePage() {
         {status === "processing" && (
           <div className="flex items-center gap-2 text-accent text-sm font-semibold">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span>AI analyzing Egyptian dialect…</span>
+            <span>{t.voiceProcessing}</span>
           </div>
         )}
 
-        {/* Quick Text Input Alternative (Allows testing without speaking) */}
+        {/* Quick Text Input Alternative */}
         {status === "idle" && (
           <form
             onSubmit={(e) => {
@@ -334,13 +327,14 @@ export default function VoicePage() {
               type="text"
               value={customText}
               onChange={(e) => setCustomText(e.target.value)}
-              placeholder="Or type here: دفعت 120 في أوبر..."
+              placeholder={t.voiceOrType}
               className="flex-1 text-xs bg-transparent px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none"
             />
             <button
               type="submit"
               disabled={!customText.trim()}
               className="bg-accent text-accent-foreground p-2 rounded-xl disabled:opacity-40 hover:bg-accent/90 transition-colors"
+              style={{ transform: isRtl ? 'scaleX(-1)' : 'none' }}
             >
               <Send size={14} />
             </button>
@@ -354,7 +348,7 @@ export default function VoicePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-emerald-500">
                   <CheckCircle2 className="w-5 h-5" />
-                  <span className="font-semibold text-sm">Expense Extracted</span>
+                  <span className="font-bold text-sm">{t.voiceDone}</span>
                 </div>
                 {parsed.provider && parsed.provider !== 'rule-based' && (
                   <span className="text-[10px] font-bold bg-accent/15 text-accent px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -365,19 +359,19 @@ export default function VoicePage() {
 
               <div className="space-y-2 pt-1 border-t border-card-border">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Merchant</span>
-                  <span className="font-semibold text-foreground">{parsed.merchant}</span>
+                  <span className="text-muted-foreground">{t.receiptMerchant}</span>
+                  <span className="font-bold text-foreground">{parsed.merchant}</span>
                 </div>
                 {parsed.category && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Category</span>
-                    <span className="font-semibold text-foreground">{parsed.category}</span>
+                    <span className="text-muted-foreground">{t.receiptCategory}</span>
+                    <span className="font-semibold text-foreground">{getCategoryLabel(parsed.category, t)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Amount</span>
-                  <span className="font-bold text-foreground text-base">
-                    {parsed.amount != null ? `EGP ${parsed.amount.toFixed(2)}` : "Not detected"}
+                  <span className="text-muted-foreground">{t.receiptTotalAmount}</span>
+                  <span className="font-extrabold text-foreground text-base">
+                    {parsed.amount != null ? `${parsed.amount.toFixed(2)} ${isRtl ? 'ج.م' : 'EGP'}` : (isRtl ? "مش محدد" : "Not detected")}
                   </span>
                 </div>
               </div>
@@ -389,11 +383,11 @@ export default function VoicePage() {
 
             <div className="space-y-3">
               <Button onClick={handleConfirm} className="w-full" size="lg">
-                Continue to Save
+                {t.voiceConfirmBtn}
               </Button>
               <Button variant="ghost" className="w-full gap-2" onClick={reset}>
                 <RotateCcw className="w-4 h-4" />
-                Record Another
+                {t.voiceRecordAnother}
               </Button>
             </div>
           </div>
@@ -405,15 +399,15 @@ export default function VoicePage() {
             <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-red-400">Microphone Error</p>
+                <p className="text-sm font-bold text-red-400">{t.voiceMicBlocked}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Microphone access was denied or not found. You can enable it in browser permissions or type your expense directly.
+                  {isRtl ? 'يرجى تفعيل صلاحية الميكروفون في المتصفح أو كتابة المصروف مباشرة في الحقل بالأعلى.' : 'Microphone permission denied. Enable it in browser settings or type your expense directly.'}
                 </p>
               </div>
             </div>
             <Button variant="outline" className="w-full gap-2" onClick={reset}>
               <RotateCcw className="w-4 h-4" />
-              Try Again
+              {isRtl ? 'حاول تاني' : 'Try Again'}
             </Button>
           </div>
         )}
