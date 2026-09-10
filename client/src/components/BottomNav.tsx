@@ -1,5 +1,5 @@
 import { useLocation, Link } from 'wouter';
-import { Home, Plus, List, Sparkles, Settings, Mic, Camera, QrCode, PenLine } from 'lucide-react';
+import { Home, Plus, List, Sparkles, ShoppingBag, Mic, Camera, QrCode, PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAppContext } from '../contexts/AppContext';
@@ -9,12 +9,14 @@ export function BottomNav() {
   const [location] = useLocation();
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
+  // 5-tab layout: Home | Expenses | [+FAB] | Deals(AI Alternatives) | Insights
+  // Settings moved to TopBar
   const navItems = [
     { icon: Home, label: t.navHome, path: '/dashboard' },
     { icon: List, label: t.navTransactions, path: '/transactions' },
     { isAdd: true },
+    { icon: ShoppingBag, label: t.navDeals, path: '/alternatives' },
     { icon: Sparkles, label: t.navInsights, path: '/insights' },
-    { icon: Settings, label: t.navSettings, path: '/settings' },
   ];
 
   const addOptions = [
@@ -68,7 +70,7 @@ export function BottomNav() {
 
       {/* Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-card-border pb-safe">
-        <div className="max-w-md mx-auto flex items-center justify-between px-2 h-16 relative">
+        <div className="max-w-md mx-auto flex items-center justify-between px-1 h-16 relative">
           {navItems.map((item, idx) => {
             if (item.isAdd) {
               return (
@@ -91,11 +93,11 @@ export function BottomNav() {
               <Link key={idx} href={item.path!} className="flex-1">
                 <div className="flex flex-col items-center justify-center h-full gap-1 cursor-pointer">
                   <Icon 
-                    size={22} 
+                    size={21}
                     className={isActive ? 'text-primary' : 'text-muted-foreground'}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
-                  <span className={`text-[11px] ${isActive ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}>
+                  <span className={`text-[10px] ${isActive ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}>
                     {item.label}
                   </span>
                 </div>

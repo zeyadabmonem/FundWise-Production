@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useRoute, useLocation } from 'wouter';
+import { useRoute, useLocation, Link } from 'wouter';
 import { useAppContext } from '../contexts/AppContext';
 import { Category, CATEGORY_COLORS, AI_ALTERNATIVES } from '../data/seedData';
 import { CategoryBadge, AIBadge } from '../components/CategoryBadge';
@@ -158,7 +158,15 @@ export default function TransactionDetailPage() {
                   Switching to <strong className="text-foreground">{alternative.altProduct}</strong> could save you 
                   <strong className="text-success ml-1">EGP {alternative.currentPrice - alternative.altPrice}</strong> per purchase.
                 </p>
-                <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">Suggested · Example Data</span>
+                <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-accent/20">
+                  <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide">Suggested · Example Data</span>
+                  <Link
+                    to={`/alternatives?q=${encodeURIComponent(tx.merchant)}`}
+                    className="text-xs text-primary font-medium hover:underline flex items-center gap-1"
+                  >
+                    Find real prices & alternatives →
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

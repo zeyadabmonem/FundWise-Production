@@ -16,6 +16,7 @@ import VoicePage from './pages/VoicePage';
 import ReceiptPage from './pages/ReceiptPage';
 import QrPage from './pages/QrPage';
 import InsightsPage from './pages/InsightsPage';
+import AlternativesPage from './pages/AlternativesPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/receipt" component={ReceiptPage} />
       <Route path="/qr" component={QrPage} />
       <Route path="/insights" component={InsightsPage} />
+      <Route path="/alternatives" component={AlternativesPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/admin" component={AdminDashboardPage} />
       <Route>
