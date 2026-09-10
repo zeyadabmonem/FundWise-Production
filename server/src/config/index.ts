@@ -12,6 +12,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().optional(),
   SESSION_SECRET: z.string().default("fundwise-production-secure-session-secret-key-32-chars-min!"),
   OPENAI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
   ADMIN_EMAILS: z.string().default("admin@fundwise.eg,admin@example.com"),
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
 });

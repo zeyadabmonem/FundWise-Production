@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { TopBar } from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  Mic, MicOff, Loader2, CheckCircle2, AlertCircle, RotateCcw,
+  Sparkles, Send, Settings as SettingsIcon,
+} from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -11,15 +14,15 @@ type Status = "idle" | "listening" | "processing" | "done" | "error" | "unsuppor
 interface ParsedExpense {
   merchant: string;
   amount: number | null;
+  category?: string;
   transcript: string;
+  provider?: "gemini" | "openai" | "rule-based";
 }
 
-// ─── Parser: extract merchant + amount from transcript ───────────────────────
+// ─── Local Fallback Parser: extract merchant + amount from transcript ────────
 function parseExpenseFromTranscript(text: string): ParsedExpense {
   const lower = text.toLowerCase();
 
-  // Extract amount — supports Arabic + English patterns
-  // e.g. "paid 50 pounds", "دفعت 120 جنيه", "50 EGP", "spent 75"
   const amountPatterns = [
     /(\d+(?:\.\d{1,2})?)\s*(?:egp|pounds?|جنيه|جنيهات|le)/i,
     /(?:paid|spent|cost|دفعت|اشتريت|كلف|بـ)\s+(\d+(?:\.\d{1,2})?)/i,
@@ -36,7 +39,6 @@ function parseExpenseFromTranscript(text: string): ParsedExpense {
     }
   }
 
-  // Extract merchant — known Egyptian merchants
   const merchants: Record<string, string> = {
     starbucks: "Starbucks", كارفور: "Carrefour", carrefour: "Carrefour",
     vodafone: "Vodafone", فودافون: "Vodafone", uber: "Uber", أوبر: "Uber",
@@ -60,19 +62,26 @@ function parseExpenseFromTranscript(text: string): ParsedExpense {
     }
   }
 
-  return { merchant, amount, transcript: text };
+  return { merchant, amount, transcript: text, provider: "rule-based" };
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function VoicePage() {
   const [, navigate] = useLocation();
-  const { dispatch } = useAppContext();
+  const { isAiEnabled, getAiHeaders } = useAppContext();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
+  const [customText, setCustomText] = useState("");
   const [parsed, setParsed] = useState<ParsedExpense | null>(null);
   const [pulseSize, setPulseSize] = useState(1);
   const recognitionRef = useRef<any>(null);
   const animFrameRef = useRef<number>(0);
+  const transcriptRef = useRef<string>("");
+
+  // Keep ref synchronized with state to avoid stale closures in recognition.onend
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   // ── Animate microphone pulse while listening ────────────────────────────
   useEffect(() => {
@@ -100,13 +109,59 @@ export default function VoicePage() {
     }
   }, []);
 
-  // ── Start recording ─────────────────────────────────────────────────────
+  // ── Process Speech / Text through AI (or Local Fallback) ─────────────────
+  const processExpense = async (rawText: string) => {
+    const cleaned = rawText.trim();
+    if (!cleaned) {
+      setStatus("idle");
+      return;
+    }
+
+    setStatus("processing");
+
+    // 1. Try AI parsing (Gemini or OpenAI)
+    if (isAiEnabled) {
+      try {
+        const res = await fetch("/api/ai/parse-text", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAiHeaders(),
+          },
+          body: JSON.stringify({ text: cleaned }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setParsed({
+            merchant: data.merchant || "Unknown Merchant",
+            amount: typeof data.amount === "number" && data.amount > 0 ? data.amount : null,
+            category: data.category,
+            transcript: cleaned,
+            provider: data.provider || "gemini",
+          });
+          setStatus("done");
+          return;
+        }
+      } catch (err) {
+        console.warn("AI parse failed, falling back to local regex:", err);
+      }
+    }
+
+    // 2. Local fallback regex
+    const localResult = parseExpenseFromTranscript(cleaned);
+    setParsed(localResult);
+    setStatus("done");
+  };
+
+  // ── Start Speech Recording ──────────────────────────────────────────────
   const startListening = () => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "ar-EG"; // Arabic (Egypt) — falls back to English too
+    recognition.lang = "ar-EG";
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
@@ -124,21 +179,18 @@ export default function VoicePage() {
           interimText += result[0].transcript;
         }
       }
-      setTranscript(finalText || interimText);
+      const current = finalText || interimText;
+      setTranscript(current);
+      transcriptRef.current = current;
     };
 
     recognition.onend = () => {
-      setStatus("processing");
-      setTimeout(() => {
-        const full = transcript || "";
-        if (full.trim()) {
-          const result = parseExpenseFromTranscript(full);
-          setParsed(result);
-          setStatus("done");
-        } else {
-          setStatus("idle");
-        }
-      }, 500);
+      const recorded = transcriptRef.current;
+      if (recorded.trim()) {
+        processExpense(recorded);
+      } else {
+        setStatus("idle");
+      }
     };
 
     recognition.onerror = (e: any) => {
@@ -151,6 +203,7 @@ export default function VoicePage() {
     };
 
     setTranscript("");
+    transcriptRef.current = "";
     setParsed(null);
     recognition.start();
   };
@@ -159,152 +212,209 @@ export default function VoicePage() {
     recognitionRef.current?.stop();
   };
 
-  // ── Navigate to manual entry with pre-filled data ───────────────────────
   const handleConfirm = () => {
     if (!parsed) return;
-    // Pass prefill data via sessionStorage (wouter doesn't support route state)
     sessionStorage.setItem("manualPrefill", JSON.stringify({
       merchant: parsed.merchant,
       amount: parsed.amount ?? "",
+      category: parsed.category || "Food & Drink",
       notes: `Voice: "${parsed.transcript}"`,
       captureChannel: "voice",
     }));
     navigate("/manual");
   };
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+  const reset = () => {
+    setStatus("idle");
+    setTranscript("");
+    transcriptRef.current = "";
+    setCustomText("");
+    setParsed(null);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <TopBar title="Voice Capture" showBack />
 
-      <div className="flex-1 flex flex-col items-center justify-center gap-8 px-6 pb-8">
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 pb-8">
+
+        {/* AI Status Badge */}
+        {isAiEnabled ? (
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs px-3 py-1.5 rounded-full">
+            <Sparkles size={13} className="animate-pulse" />
+            <span className="font-semibold">AI Dialect Parser Active (Egyptian Slang Support)</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-muted/50 border border-card-border text-muted-foreground text-xs px-3 py-1.5 rounded-full">
+            <Sparkles size={13} className="text-accent" />
+            <span>Local parser active</span>
+            <Link href="/settings" className="text-accent font-semibold hover:underline flex items-center gap-0.5">
+              Add Gemini Key <SettingsIcon size={11} />
+            </Link>
+          </div>
+        )}
 
         {/* Status message */}
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">
-            {status === "idle" && "Tap to speak"}
-            {status === "listening" && "Listening…"}
-            {status === "processing" && "Processing…"}
-            {status === "done" && "Done!"}
+          <h2 className="text-xl font-bold text-foreground">
+            {status === "idle" && "Tap to Speak or Type"}
+            {status === "listening" && "Listening to Egyptian / English…"}
+            {status === "processing" && "AI is extracting expense…"}
+            {status === "done" && "Extracted successfully!"}
             {status === "error" && "Microphone blocked"}
-            {status === "unsupported" && "Not supported"}
+            {status === "unsupported" && "Voice not supported in this browser"}
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {status === "idle" && 'Say e.g. "Paid 95 EGP at Starbucks"'}
-            {status === "listening" && "Speak clearly, then tap stop"}
-            {status === "processing" && "Extracting merchant and amount…"}
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+            {status === "idle" && 'Say e.g. "دفعت 450 في كارفور" or "Paid 95 EGP at Starbucks"'}
+            {status === "listening" && "Speak clearly, then tap stop when finished"}
+            {status === "processing" && "Analyzing merchant, amount, and category…"}
             {status === "done" && "Review the details below"}
-            {status === "error" && "Please allow microphone access"}
-            {status === "unsupported" && "Use Chrome or Edge browser"}
+            {status === "error" && "Please allow microphone access in browser permissions"}
+            {status === "unsupported" && "You can still type your expense below!"}
           </p>
         </div>
 
         {/* Mic button */}
         {status !== "unsupported" && (
           <div className="relative">
-            {/* Outer pulse ring */}
             {status === "listening" && (
               <>
-                <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-                <div className="absolute inset-[-8px] rounded-full bg-primary/10 animate-pulse" />
+                <div className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+                <div className="absolute inset-[-12px] rounded-full bg-red-500/10 animate-pulse" />
               </>
             )}
 
             <button
+              type="button"
               onClick={status === "listening" ? stopListening : startListening}
               disabled={status === "processing"}
               className="relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-200 shadow-2xl disabled:opacity-50"
               style={{
+                transform: `scale(${status === "listening" ? pulseSize : 1})`,
                 background: status === "listening"
                   ? "linear-gradient(135deg, #ef4444, #dc2626)"
                   : "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-                transform: `scale(${status === "listening" ? pulseSize : 1})`,
               }}
             >
-              {status === "processing" ? (
-                <Loader2 className="w-10 h-10 text-white animate-spin" />
-              ) : status === "listening" ? (
-                <MicOff className="w-10 h-10 text-white" />
+              {status === "listening" ? (
+                <MicOff className="w-12 h-12 text-white" />
               ) : (
-                <Mic className="w-10 h-10 text-white" />
+                <Mic className="w-12 h-12 text-white" />
               )}
             </button>
           </div>
         )}
 
-        {/* Live transcript */}
-        {(status === "listening" || status === "processing") && transcript && (
-          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-4">
-            <p className="text-sm text-muted-foreground mb-1">Transcript</p>
-            <p className="text-foreground font-medium">"{transcript}"</p>
+        {/* Live transcript during listening */}
+        {status === "listening" && transcript && (
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1 font-medium">Heard so far:</p>
+            <p className="text-sm font-semibold text-foreground italic">"{transcript}"</p>
           </div>
         )}
 
-        {/* Result card */}
+        {/* Processing Spinner */}
+        {status === "processing" && (
+          <div className="flex items-center gap-2 text-accent text-sm font-semibold">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>AI analyzing Egyptian dialect…</span>
+          </div>
+        )}
+
+        {/* Quick Text Input Alternative (Allows testing without speaking) */}
+        {status === "idle" && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (customText.trim()) processExpense(customText);
+            }}
+            className="w-full max-w-sm flex items-center gap-2 bg-card border border-card-border rounded-2xl p-1.5 shadow-sm"
+          >
+            <input
+              type="text"
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              placeholder="Or type here: دفعت 120 في أوبر..."
+              className="flex-1 text-xs bg-transparent px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!customText.trim()}
+              className="bg-accent text-accent-foreground p-2 rounded-xl disabled:opacity-40 hover:bg-accent/90 transition-colors"
+            >
+              <Send size={14} />
+            </button>
+          </form>
+        )}
+
+        {/* DONE Result Card */}
         {status === "done" && parsed && (
           <div className="w-full max-w-sm space-y-4">
             <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <CheckCircle2 className="w-5 h-5" />
-                <span className="font-semibold text-sm">Extracted successfully</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-500">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="font-semibold text-sm">Expense Extracted</span>
+                </div>
+                {parsed.provider && parsed.provider !== 'rule-based' && (
+                  <span className="text-[10px] font-bold bg-accent/15 text-accent px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Sparkles size={10} /> AI NLP
+                  </span>
+                )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 pt-1 border-t border-card-border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Merchant</span>
                   <span className="font-semibold text-foreground">{parsed.merchant}</span>
                 </div>
+                {parsed.category && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Category</span>
+                    <span className="font-semibold text-foreground">{parsed.category}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Amount</span>
-                  <span className="font-semibold text-foreground">
-                    {parsed.amount != null ? `EGP ${parsed.amount}` : "Not detected"}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Transcript</span>
-                  <span className="font-medium text-foreground text-right max-w-[180px] truncate">
-                    "{parsed.transcript}"
+                  <span className="font-bold text-foreground text-base">
+                    {parsed.amount != null ? `EGP ${parsed.amount.toFixed(2)}` : "Not detected"}
                   </span>
                 </div>
               </div>
+
+              <div className="pt-2 border-t border-card-border">
+                <p className="text-[11px] text-muted-foreground italic">"{parsed.transcript}"</p>
+              </div>
             </div>
 
-            <Button onClick={handleConfirm} className="w-full" size="lg">
-              Continue to Save
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => { setStatus("idle"); setTranscript(""); setParsed(null); }}
-            >
+            <div className="space-y-3">
+              <Button onClick={handleConfirm} className="w-full" size="lg">
+                Continue to Save
+              </Button>
+              <Button variant="ghost" className="w-full gap-2" onClick={reset}>
+                <RotateCcw className="w-4 h-4" />
+                Record Another
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ERROR state */}
+        {status === "error" && (
+          <div className="w-full max-w-sm space-y-4">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-400">Microphone Error</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Microphone access was denied or not found. You can enable it in browser permissions or type your expense directly.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full gap-2" onClick={reset}>
+              <RotateCcw className="w-4 h-4" />
               Try Again
             </Button>
-          </div>
-        )}
-
-        {/* Error state */}
-        {status === "error" && (
-          <div className="w-full max-w-sm bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-red-400">Microphone access denied</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Go to browser settings → Site permissions → Allow microphone for this site.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Unsupported */}
-        {status === "unsupported" && (
-          <div className="w-full max-w-sm bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-amber-400">Browser not supported</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Voice recognition requires Chrome 25+ or Edge 79+. Please switch browsers.
-              </p>
-            </div>
           </div>
         )}
       </div>

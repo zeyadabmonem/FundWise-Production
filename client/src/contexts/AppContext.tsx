@@ -17,6 +17,12 @@ export interface User {
 type TransactionInput = Omit<Transaction, 'id' | 'userId' | 'reviewStatus' | 'reviewedAt' | 'reviewedBy' | 'createdAt' | 'updatedAt'>;
 type TransactionUpdate = Partial<TransactionInput>;
 
+export interface ServerAiStatus {
+  hasServerGemini: boolean;
+  hasServerOpenAI: boolean;
+  activeProvider: 'gemini' | 'openai' | 'none';
+}
+
 interface AppContextType {
   user: User | null;
   isLoading: boolean;
@@ -32,6 +38,14 @@ interface AppContextType {
   setMerchantCategory: (merchant: string, category: Category) => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  // AI Keys & Integration
+  geminiApiKey: string;
+  setGeminiApiKey: (key: string) => void;
+  openaiApiKey: string;
+  setOpenaiApiKey: (key: string) => void;
+  serverAiStatus: ServerAiStatus | null;
+  getAiHeaders: () => Record<string, string>;
+  isAiEnabled: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -84,9 +98,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // AI Keys & Server Status
+  const [geminiApiKey, setGeminiApiKeyState] = useState('');
+  const [openaiApiKey, setOpenaiApiKeyState] = useState('');
+  const [serverAiStatus, setServerAiStatus] = useState<ServerAiStatus | null>(null);
+
   const loadTransactions = async () => {
     const data = await request<Record<string, unknown>[]>('/api/transactions');
     setTransactions(data.map(toLocalTransaction));
+  };
+
+  const checkAiStatus = async () => {
+    try {
+      const status = await request<ServerAiStatus>('/api/ai/status');
+      setServerAiStatus(status);
+    } catch {
+      // Ignore if unauthenticated or endpoint unavailable
+    }
   };
 
   useEffect(() => {
@@ -94,6 +122,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const hydrate = async () => {
       const storedOverrides = localStorage.getItem('fw_overrides');
       const storedDarkMode = localStorage.getItem('fw_dark_mode');
+      const storedGeminiKey = localStorage.getItem('fw_gemini_key');
+      const storedOpenaiKey = localStorage.getItem('fw_openai_key');
+
       if (storedOverrides) {
         try { setMerchantOverrides(JSON.parse(storedOverrides)); } catch { /* Ignore malformed preference data. */ }
       }
@@ -101,12 +132,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setIsDarkMode(true);
         document.documentElement.classList.add('dark');
       }
+      if (storedGeminiKey) setGeminiApiKeyState(storedGeminiKey);
+      if (storedOpenaiKey) setOpenaiApiKeyState(storedOpenaiKey);
 
       try {
         const currentUser = await request<User>('/api/auth/me');
         if (!cancelled) {
           setUser(currentUser);
           await loadTransactions();
+          await checkAiStatus();
           try {
             const dbOverrides = await request<Record<string, Category>>('/api/merchant-overrides');
             if (dbOverrides) setMerchantOverrides((prev) => ({ ...prev, ...dbOverrides }));
@@ -135,55 +169,89 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     else document.documentElement.classList.remove('dark');
   }, [merchantOverrides, isDarkMode, isHydrated]);
 
+  const setGeminiApiKey = (key: string) => {
+    const trimmed = key.trim();
+    setGeminiApiKeyState(trimmed);
+    localStorage.setItem('fw_gemini_key', trimmed);
+  };
+
+  const setOpenaiApiKey = (key: string) => {
+    const trimmed = key.trim();
+    setOpenaiApiKeyState(trimmed);
+    localStorage.setItem('fw_openai_key', trimmed);
+  };
+
+  const getAiHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (geminiApiKey) headers['x-gemini-api-key'] = geminiApiKey;
+    if (openaiApiKey) headers['x-openai-api-key'] = openaiApiKey;
+    return headers;
+  };
+
+  const isAiEnabled = Boolean(
+    geminiApiKey.length > 0 ||
+    openaiApiKey.length > 0 ||
+    serverAiStatus?.hasServerGemini ||
+    serverAiStatus?.hasServerOpenAI
+  );
+
   const authenticate = async (path: '/api/auth/login' | '/api/auth/register', body: Record<string, string>) => {
     try {
       setError(null);
-      const authenticatedUser = await request<User>(path, { method: 'POST', body: JSON.stringify(body) });
+      const authenticatedUser = await request<User>(path, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       setUser(authenticatedUser);
       await loadTransactions();
+      await checkAiStatus();
       return authenticatedUser;
     } catch (authError: unknown) {
-      setError(authError instanceof Error ? authError.message : 'Unable to sign in');
+      const message = authError instanceof Error ? authError.message : 'Authentication failed';
+      setError(message);
       return null;
     }
   };
 
-  const login = (email: string, password: string) => authenticate('/api/auth/login', { email, password });
-  const register = (name: string, email: string, password: string) => authenticate('/api/auth/register', { name, email, password });
+  const login = async (email: string, password: string) => authenticate('/api/auth/login', { email, password });
+  const register = async (name: string, email: string, password: string) => authenticate('/api/auth/register', { name, email, password });
 
   const logout = async () => {
-    try { await request<void>('/api/auth/logout', { method: 'POST' }); }
-    finally {
+    try {
+      await request<void>('/api/auth/logout', { method: 'POST' });
+    } finally {
       setUser(null);
       setTransactions([]);
-      setError(null);
+      setMerchantOverrides({});
     }
   };
 
   const addTransaction = async (tx: TransactionInput) => {
     try {
-      const saved = await request<Record<string, unknown>>('/api/transactions', {
+      setError(null);
+      const created = await request<Record<string, unknown>>('/api/transactions', {
         method: 'POST',
         body: JSON.stringify(tx),
       });
-      const localTransaction = toLocalTransaction(saved);
-      setTransactions((prev) => [localTransaction, ...prev]);
-      return localTransaction;
+      const local = toLocalTransaction(created);
+      setTransactions((prev) => [local, ...prev]);
+      return local;
     } catch (transactionError: unknown) {
       setError(transactionError instanceof Error ? transactionError.message : 'Unable to save transaction');
       return null;
     }
   };
 
-  const updateTransaction = async (id: string, updates: TransactionUpdate) => {
+  const updateTransaction = async (id: string, tx: TransactionUpdate) => {
     try {
-      const saved = await request<Record<string, unknown>>(`/api/transactions/${encodeURIComponent(id)}`, {
+      setError(null);
+      const updated = await request<Record<string, unknown>>(`/api/transactions/${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        body: JSON.stringify(updates),
+        body: JSON.stringify(tx),
       });
-      const localTransaction = toLocalTransaction(saved);
-      setTransactions((prev) => prev.map((tx) => tx.id === id ? localTransaction : tx));
-      return localTransaction;
+      const local = toLocalTransaction(updated);
+      setTransactions((prev) => prev.map((item) => (item.id === id ? local : item)));
+      return local;
     } catch (transactionError: unknown) {
       setError(transactionError instanceof Error ? transactionError.message : 'Unable to update transaction');
       return null;
@@ -216,6 +284,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       user, isLoading, error, login, register, logout, transactions, addTransaction,
       updateTransaction, deleteTransaction, merchantOverrides, setMerchantCategory,
       isDarkMode, toggleDarkMode,
+      geminiApiKey, setGeminiApiKey,
+      openaiApiKey, setOpenaiApiKey,
+      serverAiStatus, getAiHeaders, isAiEnabled,
     }}>
       {children}
     </AppContext.Provider>
