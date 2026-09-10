@@ -1,25 +1,27 @@
 import { useLocation, Link } from 'wouter';
-import { Home, Plus, List, Sparkles, Settings, Mic, Camera, QrCode, PenLine, X } from 'lucide-react';
+import { Home, Plus, List, Sparkles, Settings, Mic, Camera, QrCode, PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useAppContext } from '../contexts/AppContext';
 
 export function BottomNav() {
+  const { t } = useAppContext();
   const [location] = useLocation();
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/dashboard' },
-    { icon: List, label: 'Activity', path: '/transactions' },
+    { icon: Home, label: t.navHome, path: '/dashboard' },
+    { icon: List, label: t.navTransactions, path: '/transactions' },
     { isAdd: true },
-    { icon: Sparkles, label: 'Insights', path: '/insights' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
+    { icon: Sparkles, label: t.navInsights, path: '/insights' },
+    { icon: Settings, label: t.navSettings, path: '/settings' },
   ];
 
   const addOptions = [
-    { icon: Mic, label: 'Voice Capture', path: '/voice', color: 'bg-primary' },
-    { icon: Camera, label: 'Scan Receipt', path: '/receipt', color: 'bg-primary' },
-    { icon: QrCode, label: 'Scan QR', path: '/qr', color: 'bg-primary' },
-    { icon: PenLine, label: 'Manual Entry', path: '/manual', color: 'bg-primary' },
+    { icon: Mic, label: t.actionVoice, path: '/voice', color: 'bg-primary' },
+    { icon: Camera, label: t.actionReceipt, path: '/receipt', color: 'bg-primary' },
+    { icon: QrCode, label: t.actionQr, path: '/qr', color: 'bg-primary' },
+    { icon: PenLine, label: t.actionManual, path: '/manual', color: 'bg-primary' },
   ];
 
   // Hide nav on certain screens
@@ -54,7 +56,7 @@ export function BottomNav() {
                       <div className={`${opt.color} text-primary-foreground p-3 rounded-full group-hover:scale-110 transition-transform`}>
                         <opt.icon size={24} />
                       </div>
-                      <span className="font-medium text-sm text-foreground">{opt.label}</span>
+                      <span className="font-semibold text-sm text-foreground">{opt.label}</span>
                     </div>
                   </Link>
                 ))}
@@ -72,6 +74,7 @@ export function BottomNav() {
               return (
                 <div key="add" className="flex-1 flex justify-center relative -top-5">
                   <button
+                    type="button"
                     onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
                     className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform ${isAddMenuOpen ? 'bg-muted text-foreground rotate-45' : 'bg-primary text-primary-foreground hover:scale-105'}`}
                   >
@@ -88,11 +91,11 @@ export function BottomNav() {
               <Link key={idx} href={item.path!} className="flex-1">
                 <div className="flex flex-col items-center justify-center h-full gap-1 cursor-pointer">
                   <Icon 
-                    size={24} 
+                    size={22} 
                     className={isActive ? 'text-primary' : 'text-muted-foreground'}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
-                  <span className={`text-[10px] ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                  <span className={`text-[11px] ${isActive ? 'text-primary font-bold' : 'text-muted-foreground font-medium'}`}>
                     {item.label}
                   </span>
                 </div>
@@ -104,3 +107,5 @@ export function BottomNav() {
     </>
   );
 }
+
+export default BottomNav;
