@@ -47,6 +47,34 @@ Egyptian dialect guidance:
 - Understand Egyptian phrases like: "نزلت جبت", "صرفت", "دفعت", "ركبت", "شحنت", "حاسبت", "فطار", "غدا", "عشا", "بنزين", "اوبر", "كارت شحن".
 - Return ONLY valid JSON, no markdown formatting or commentary.`;
 
+const CANDIDATE_GEMINI_MODELS = [
+  "gemini-3.6-flash",
+  "gemini-flash-latest",
+  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+];
+
+async function callGemini(gemini: GoogleGenAI, contents: any, genConfig?: any) {
+  let lastError: any = null;
+  for (const model of CANDIDATE_GEMINI_MODELS) {
+    try {
+      return await gemini.models.generateContent({
+        model,
+        contents,
+        config: genConfig,
+      });
+    } catch (err: any) {
+      lastError = err;
+      const msg = err?.message || "";
+      if (msg.includes("not found") || msg.includes("no longer available") || msg.includes("NOT_FOUND")) {
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 // ─── Rule-Based Fallback for Local Dev without Any API Key ──────────────────
 const KNOWN_MERCHANT_CATEGORIES: Record<string, Category> = {
   starbucks: "Food & Drink",
@@ -105,9 +133,6 @@ function cleanJsonString(raw: string): string {
 }
 
 export class AiService {
-  /**
-   * Determine the active AI provider based on request keys or server env
-   */
   getProvider(keys?: ApiKeyOptions): "gemini" | "openai" | "none" {
     const geminiKey = keys?.geminiKey?.trim() || config.GEMINI_API_KEY?.trim();
     if (geminiKey) return "gemini";
@@ -129,7 +154,7 @@ export class AiService {
   }
 
   /**
-   * Scan receipt image with Gemini 1.5 Flash Vision or OpenAI GPT-4o-mini Vision
+   * Scan receipt image with Gemini Vision or OpenAI Vision
    */
   async scanReceipt(
     imageBuffer: Buffer,
@@ -141,15 +166,15 @@ export class AiService {
     const gemini = this.getGeminiClient(keys);
     const openai = this.getOpenAiClient(keys);
 
-    // 1. Try Gemini 1.5 Flash Vision (Free Tier & High Accuracy)
+    // 1. Try Gemini Vision (Free Tier & High Accuracy)
     if (gemini) {
       try {
         const base64 = imageBuffer.toString("base64");
         const mime = mimeType || "image/jpeg";
 
-        const response = await gemini.models.generateContent({
-          model: "gemini-1.5-flash",
-          contents: [
+        const response = await callGemini(
+          gemini,
+          [
             {
               role: "user",
               parts: [
@@ -165,10 +190,8 @@ export class AiService {
               ],
             },
           ],
-          config: {
-            responseMimeType: "application/json",
-          },
-        });
+          { responseMimeType: "application/json" }
+        );
 
         const rawText = response.text || "{}";
         const parsed = JSON.parse(cleanJsonString(rawText)) as ExtractedTransaction;
@@ -259,9 +282,9 @@ export class AiService {
     // 1. Try Gemini
     if (gemini) {
       try {
-        const response = await gemini.models.generateContent({
-          model: "gemini-1.5-flash",
-          contents: [
+        const response = await callGemini(
+          gemini,
+          [
             {
               role: "user",
               parts: [
@@ -271,10 +294,8 @@ export class AiService {
               ],
             },
           ],
-          config: {
-            responseMimeType: "application/json",
-          },
-        });
+          { responseMimeType: "application/json" }
+        );
 
         const raw = response.text || "{}";
         const parsed = JSON.parse(cleanJsonString(raw)) as ExtractedTransaction;
@@ -423,9 +444,9 @@ export class AiService {
     const gemini = this.getGeminiClient(keys);
     if (gemini) {
       try {
-        const response = await gemini.models.generateContent({
-          model: "gemini-1.5-flash",
-          contents: [
+        const response = await callGemini(
+          gemini,
+          [
             {
               role: "user",
               parts: [
@@ -435,8 +456,8 @@ export class AiService {
               ],
             },
           ],
-          config: { responseMimeType: "application/json" },
-        });
+          { responseMimeType: "application/json" }
+        );
         const parsed = JSON.parse(cleanJsonString(response.text || "{}"));
         const category = CATEGORIES.includes(parsed.category) ? parsed.category : "Other";
         const confidence = ["high", "medium", "low"].includes(parsed.confidence) ? parsed.confidence : "medium";
