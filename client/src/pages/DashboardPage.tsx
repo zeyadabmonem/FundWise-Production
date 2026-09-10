@@ -6,6 +6,7 @@ import { Category, CATEGORY_COLORS } from '../data/seedData';
 import { ChevronRight, TrendingUp, Zap, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AIBadge } from '../components/CategoryBadge';
+import { getCategoryLabel } from '../locales/translations';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -34,7 +35,7 @@ const categoryItemVariants = {
 };
 
 export default function DashboardPage() {
-  const { transactions, user } = useAppContext();
+  const { transactions, user, t, isRtl } = useAppContext();
 
   const currentMonthTransactions = useMemo(() => {
     const now = new Date();
@@ -71,7 +72,7 @@ export default function DashboardPage() {
     return Object.entries(breakdown)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 6); // top 6
+      .slice(0, 6);
   }, [currentMonthTransactions]);
 
   const maxCategoryAmount = categoryBreakdown.length > 0 ? Math.max(...categoryBreakdown.map(c => c.value)) : 0;
@@ -87,10 +88,13 @@ export default function DashboardPage() {
     const list = [];
     if (topCategory && totalSpend > 0) {
       const pct = Math.round((topCategory.value / totalSpend) * 100);
+      const catLabel = getCategoryLabel(topCategory.name, t);
       list.push({
         id: 1,
         icon: TrendingUp,
-        text: `${topCategory.name} is your top spend (${pct}% of total)`
+        text: isRtl
+          ? `${catLabel} أكتر بند صرفت فيه (${pct}% من الإجمالي)`
+          : `${topCategory.name} is your top spend (${pct}% of total)`
       });
     }
     const transportSpend = categoryBreakdown.find(c => c.name === 'Transport')?.value || 0;
@@ -98,48 +102,60 @@ export default function DashboardPage() {
       list.push({
         id: 2,
         icon: Zap,
-        text: 'Save EGP 240 by switching some rides to Metro'
+        text: isRtl
+          ? 'تقدر توفر حوالي 240 جنيه لو بدّلت بعض المشاوير بالمترو 🚇'
+          : 'Save EGP 240 by switching some rides to Metro'
       });
     } else {
       list.push({
         id: 2,
         icon: Zap,
-        text: 'Daily average is EGP ' + Math.round(avgPerDay)
+        text: isRtl
+          ? `متوسط صرفك اليومي حوالي ${Math.round(avgPerDay).toLocaleString()} جنيه`
+          : `Daily average is EGP ${Math.round(avgPerDay)}`
       });
     }
     if (momChangePct <= 0) {
       list.push({
         id: 3,
         icon: Check,
-        text: `Spending is down ${Math.abs(momChangePct)}% vs last month`
+        text: isRtl
+          ? `مصاريفك قلت ${Math.abs(momChangePct)}% عن الشهر اللي فات، عاش! 👏`
+          : `Spending is down ${Math.abs(momChangePct)}% vs last month`
       });
     } else {
       list.push({
         id: 3,
         icon: TrendingUp,
-        text: `Spending up +${momChangePct}% vs last month`
+        text: isRtl
+          ? `مصاريفك زادت +${momChangePct}% عن الشهر اللي فات`
+          : `Spending up +${momChangePct}% vs last month`
       });
     }
     return list;
-  }, [topCategory, totalSpend, categoryBreakdown, avgPerDay, momChangePct]);
+  }, [topCategory, totalSpend, categoryBreakdown, avgPerDay, momChangePct, t, isRtl]);
 
   const recentTransactions = transactions.slice(0, 5);
 
   if (transactions.length === 0) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 text-center bg-background">
-        <h2 className="text-2xl font-bold mb-2 text-foreground">Welcome to FundWise</h2>
-        <p className="text-muted-foreground mb-8">Start tracking your expenses using AI.</p>
+        <h2 className="text-2xl font-bold mb-2 text-foreground">
+          {isRtl ? 'أهلاً بيك في FundWise' : 'Welcome to FundWise'}
+        </h2>
+        <p className="text-muted-foreground mb-8">
+          {isRtl ? 'ابدأ سجّل مصاريفك بسهولة بالذكاء الاصطناعي والصوت والفواتير.' : 'Start tracking your expenses using AI.'}
+        </p>
         <Link href="/manual">
           <button className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition-opacity">
-            Add your first expense
+            {isRtl ? 'سجّل أول حركة دلوقتي' : 'Add your first expense'}
           </button>
         </Link>
       </div>
     );
   }
 
-  const firstName = user?.name ? user.name.split(' ')[0] : 'Youssef';
+  const firstName = user?.name ? user.name.split(' ')[0] : (isRtl ? 'يا بطل' : 'Friend');
 
   return (
     <div className="pb-28 min-h-[100dvh] bg-background selection:bg-accent/20">
@@ -154,51 +170,65 @@ export default function DashboardPage() {
         >
           {/* Top row */}
           <div className="flex items-center justify-between relative z-10">
-            <span className="font-medium text-white/90">Good morning, {firstName}</span>
+            <span className="font-semibold text-white/95 text-base">
+              {isRtl ? `${t.greetingGeneral} ${firstName}` : `Good morning, ${firstName}`}
+            </span>
             <AIBadge />
           </div>
 
           {/* Main Stats */}
           <div className="flex flex-col gap-1 relative z-10 mt-2">
-            <div className="text-[10px] uppercase tracking-widest text-white/60 font-semibold mb-1">Total Spend</div>
-            <div className="text-4xl font-bold tabular-nums tracking-tight">EGP {totalSpend.toLocaleString()}</div>
+            <div className="text-[11px] uppercase tracking-wider text-white/70 font-semibold mb-1">
+              {t.spentThisMonth}
+            </div>
+            <div className="text-4xl font-extrabold tabular-nums tracking-tight">
+              {totalSpend.toLocaleString()} <span className="text-2xl font-bold text-accent">{isRtl ? 'ج.م' : 'EGP'}</span>
+            </div>
             <div className="text-xs text-white/60 mt-1.5 font-medium">
-              {today.toLocaleString('default', { month: 'long', year: 'numeric' })} · {currentMonthTransactions.length} transactions
+              {today.toLocaleString(isRtl ? 'ar-EG' : 'default', { month: 'long', year: 'numeric' })} · {currentMonthTransactions.length} {isRtl ? 'حركة مسجلة' : 'transactions'}
             </div>
           </div>
 
           {/* Progress */}
-          <div className="flex flex-col gap-2.5 relative z-10 mt-3">
+          <div className="flex flex-col gap-2.5 relative z-10 mt-2">
             <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${monthProgress}%` }}
                 transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
-                className="h-full bg-white/90 rounded-full" 
+                className="h-full bg-accent rounded-full" 
               />
             </div>
             <div className="text-xs text-white/60 font-medium">
-              EGP {Math.round(avgPerDay).toLocaleString()} avg/day · {currentDay} days tracked
+              {Math.round(avgPerDay).toLocaleString()} {isRtl ? 'ج.م متوسط كل يوم' : 'EGP avg/day'} · {currentDay} {isRtl ? 'يوم محسوب' : 'days tracked'}
             </div>
           </div>
 
           {/* Bottom Row Stats */}
-          <div className="grid grid-cols-3 gap-2.5 pt-3 relative z-10">
-            <div className="bg-white/10 rounded-2xl p-3 flex flex-col justify-center items-center gap-2 text-center backdrop-blur-sm border border-white/5">
-              <span className="text-[10px] text-white/60 uppercase tracking-widest font-semibold">Top Category</span>
+          <div className="grid grid-cols-3 gap-2.5 pt-2 relative z-10">
+            <div className="bg-white/10 rounded-2xl p-3 flex flex-col justify-center items-center gap-1.5 text-center backdrop-blur-sm border border-white/5">
+              <span className="text-[10px] text-white/60 uppercase tracking-wider font-semibold">
+                {isRtl ? 'أعلى فئة' : 'Top Category'}
+              </span>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: topCategory ? CATEGORY_COLORS[topCategory.name as Category] : '#fff' }} />
-                <span className="text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis max-w-[65px]">{topCategory?.name || 'N/A'}</span>
+                <span className="text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis max-w-[70px]">
+                  {topCategory ? getCategoryLabel(topCategory.name, t) : 'N/A'}
+                </span>
               </div>
             </div>
-            <div className="bg-white/10 rounded-2xl p-3 flex flex-col justify-center items-center gap-2 text-center backdrop-blur-sm border border-white/5">
-              <span className="text-[10px] text-white/60 uppercase tracking-widest font-semibold">Transactions</span>
-              <span className="text-xs font-semibold">{currentMonthTransactions.length}</span>
+            <div className="bg-white/10 rounded-2xl p-3 flex flex-col justify-center items-center gap-1.5 text-center backdrop-blur-sm border border-white/5">
+              <span className="text-[10px] text-white/60 uppercase tracking-wider font-semibold">
+                {isRtl ? 'الحركات' : 'Transactions'}
+              </span>
+              <span className="text-xs font-bold">{currentMonthTransactions.length}</span>
             </div>
-            <div className="bg-white/10 rounded-2xl p-3 flex flex-col justify-center items-center gap-2 text-center backdrop-blur-sm border border-white/5">
-              <span className="text-[10px] text-white/60 uppercase tracking-widest font-semibold">vs Last Month</span>
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${
-                momChangePct <= 0 ? 'text-emerald-300 bg-emerald-400/10' : 'text-amber-300 bg-amber-400/10'
+            <div className="bg-white/10 rounded-2xl p-3 flex flex-col justify-center items-center gap-1.5 text-center backdrop-blur-sm border border-white/5">
+              <span className="text-[10px] text-white/60 uppercase tracking-wider font-semibold">
+                {isRtl ? 'عن الماضي' : 'vs Last Month'}
+              </span>
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
+                momChangePct <= 0 ? 'text-emerald-300 bg-emerald-400/15' : 'text-amber-300 bg-amber-400/15'
               }`}>
                 {momChangePct > 0 ? `+${momChangePct}%` : `${momChangePct}%`}
               </span>
@@ -222,7 +252,7 @@ export default function DashboardPage() {
                   className="flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-[14px] bg-accent/10 border border-accent/20 shadow-sm"
                 >
                   <insight.icon size={16} className="text-accent" />
-                  <span className="text-sm font-medium text-foreground">{insight.text}</span>
+                  <span className="text-xs font-semibold text-foreground">{insight.text}</span>
                 </motion.div>
               ))}
             </motion.div>
@@ -231,12 +261,14 @@ export default function DashboardPage() {
 
         {/* Category Breakdown */}
         {categoryBreakdown.length > 0 && (
-          <div className="flex flex-col mt-2">
-            <div className="flex items-center justify-between mb-4 px-1">
-              <h3 className="font-semibold text-foreground tracking-tight">Spending by Category</h3>
+          <div className="flex flex-col mt-1">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h3 className="font-bold text-foreground text-sm tracking-tight">
+                {isRtl ? 'توزيع المصاريف حسب الفئات' : 'Spending by Category'}
+              </h3>
               <Link href="/transactions">
-                <span className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-0.5">
-                  View All <ChevronRight size={14} className="opacity-70" />
+                <span className="text-xs font-semibold text-accent hover:underline cursor-pointer flex items-center gap-0.5">
+                  {t.viewAll} <ChevronRight size={14} style={{ transform: isRtl ? 'scaleX(-1)' : 'none' }} />
                 </span>
               </Link>
             </div>
@@ -251,17 +283,20 @@ export default function DashboardPage() {
                 const color = CATEGORY_COLORS[entry.name as Category] || CATEGORY_COLORS.Other;
                 const width = maxCategoryAmount > 0 ? (entry.value / maxCategoryAmount) * 100 : 0;
                 const percentage = totalSpend > 0 ? Math.round((entry.value / totalSpend) * 100) : 0;
+                const categoryName = getCategoryLabel(entry.name, t);
 
                 return (
                   <motion.div key={entry.name} variants={categoryItemVariants} className="flex flex-col py-3.5 border-b border-border/40 last:border-0 last:pb-0 first:pt-0 gap-2.5 group">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }} />
-                        <span className="font-medium text-sm text-foreground">{entry.name}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full shadow-sm shrink-0" style={{ backgroundColor: color }} />
+                        <span className="font-medium text-sm text-foreground">{categoryName}</span>
                       </div>
-                      <div className="flex items-baseline gap-2.5">
-                        <span className="font-semibold text-sm tabular-nums tracking-tight">EGP {entry.value.toLocaleString()}</span>
-                        <span className="text-[11px] font-medium text-muted-foreground w-8 text-right bg-muted px-1.5 py-0.5 rounded-md">{percentage}%</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-bold text-sm tabular-nums tracking-tight">
+                          {entry.value.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">{isRtl ? 'ج.م' : 'EGP'}</span>
+                        </span>
+                        <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-md">{percentage}%</span>
                       </div>
                     </div>
                     <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
@@ -281,12 +316,14 @@ export default function DashboardPage() {
         )}
 
         {/* Recent Transactions */}
-        <div className="flex flex-col mt-4">
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h3 className="font-semibold text-foreground tracking-tight">Recent Activity</h3>
+        <div className="flex flex-col mt-2">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="font-bold text-foreground text-sm tracking-tight">
+              {t.recentTransactions}
+            </h3>
             <Link href="/transactions">
-              <span className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-0.5">
-                See all <ChevronRight size={14} className="opacity-70" />
+              <span className="text-xs font-semibold text-accent hover:underline cursor-pointer flex items-center gap-0.5">
+                {t.viewAll} <ChevronRight size={14} style={{ transform: isRtl ? 'scaleX(-1)' : 'none' }} />
               </span>
             </Link>
           </div>
@@ -296,9 +333,12 @@ export default function DashboardPage() {
             ))}
           </div>
           
-          <Link href="/transactions" className="mt-5">
-            <button className="w-full py-3.5 rounded-[14px] border border-primary/20 dark:border-white/10 bg-primary/5 dark:bg-white/5 text-primary dark:text-white font-semibold hover:bg-primary/10 dark:hover:bg-white/10 transition-colors">
-              See all transactions →
+          <Link href="/transactions" className="mt-4">
+            <button
+              type="button"
+              className="w-full py-3.5 rounded-[16px] border border-card-border bg-card text-foreground font-semibold text-xs hover:bg-muted/50 transition-colors shadow-xs"
+            >
+              {isRtl ? 'عرض كل المصاريف والحركات' : 'See all transactions →'}
             </button>
           </Link>
         </div>
