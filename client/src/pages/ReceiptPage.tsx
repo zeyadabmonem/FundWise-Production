@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 import Tesseract from "tesseract.js";
-import TopBar from "@/components/TopBar";
+import { TopBar } from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import {
   Camera, Upload, Loader2, CheckCircle2, AlertCircle, FileImage, RotateCcw,

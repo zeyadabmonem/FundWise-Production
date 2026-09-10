@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import jsQR from "jsqr";
-import TopBar from "@/components/TopBar";
+import { TopBar } from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, QrCode, RotateCcw } from "lucide-react";
 

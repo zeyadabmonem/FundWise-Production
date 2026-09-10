@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import TopBar from "@/components/TopBar";
+import { TopBar } from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAppContext } from "@/contexts/AppContext";
