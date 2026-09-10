@@ -21,6 +21,20 @@ export default function ManualEntryPage() {
   const [aiCategorized, setAiCategorized] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Read prefill from Voice / Receipt / QR pages ──────────────────────
+  useEffect(() => {
+    const raw = sessionStorage.getItem('manualPrefill');
+    if (raw) {
+      try {
+        const prefill = JSON.parse(raw);
+        if (prefill.merchant) setMerchant(prefill.merchant);
+        if (prefill.amount)   setAmount(String(prefill.amount));
+        if (prefill.notes)    setNotes(prefill.notes);
+      } catch { /* ignore bad data */ }
+      sessionStorage.removeItem('manualPrefill');
+    }
+  }, []);
+
   // Auto-categorize whenever merchant changes
   useEffect(() => {
     const trimmed = merchant.trim();
