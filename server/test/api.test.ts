@@ -172,6 +172,24 @@ describe("FundWise Production API Suite", () => {
       assert.equal(res.body.category, "Groceries");
       assert.equal(res.body.confidence, "high");
     });
+
+    it("POST /api/ai/alternatives/search should reject unauthenticated requests", async () => {
+      const res = await request(app)
+        .post("/api/ai/alternatives/search")
+        .send({ query: "Sony WH-1000XM5" });
+
+      assert.equal(res.status, 401);
+    });
+
+    it("POST /api/ai/alternatives/search should validate bounded Egypt/EGP input", async () => {
+      const res = await request(app)
+        .post("/api/ai/alternatives/search")
+        .set("Cookie", memberCookie)
+        .send({ query: "Sony WH-1000XM5", details: "x".repeat(301) });
+
+      assert.equal(res.status, 400);
+      assert.equal(res.body.error, "Details must be text up to 300 characters");
+    });
   });
 
   describe("Admin Access Control", () => {
