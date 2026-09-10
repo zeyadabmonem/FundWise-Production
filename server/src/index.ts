@@ -12,7 +12,8 @@ async function bootstrap() {
   const server = app.listen(config.PORT, () => {
     logger.info(`🚀 FundWise API Server running at http://localhost:${config.PORT}`);
     logger.info(`📊 Environment: ${config.NODE_ENV}`);
-    logger.info(`🤖 AI Features: ${config.OPENAI_API_KEY ? "Live OpenAI Active" : "Offline Fallback Active"}`);
+    const aiStatus = config.GEMINI_API_KEY ? "Live Google Gemini Active" : config.OPENAI_API_KEY ? "Live OpenAI Active" : "Offline Fallback Active";
+    logger.info(`🤖 AI Features: ${aiStatus}`);
   });
 
   const shutdown = (signal: string) => {
